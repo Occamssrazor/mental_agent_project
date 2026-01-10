@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "mental-agent"
+version = "0.1.0"
+description = "LangGraph mental agent (dual LLM + RAG + Telegram + scheduler)"
+authors = ["you"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.0"
+uvicorn = "^0.24.0"
+pydantic = "^2.5.0"
+requests = "^2.31.0"
+
+celery = "^5.4.0"
+redis = "^5.2.1"
+
+sqlalchemy = "^2.0.36"
+psycopg = {version="^3.2.3", extras=["binary"]}
+
+langchain-core = "^0.3.28"
+langgraph = "^0.2.62"
+openai = "^1.12.0"
+
+numpy = "^1.26.0"
+scikit-learn = "^1.3.0"
+
+# mental model in-process
+unsloth = "*"
+peft = "^0.12.0"
+torch = "*"
+vllm = "*"
+tzdata = "*"
+

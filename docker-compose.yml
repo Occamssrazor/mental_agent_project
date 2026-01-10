@@ -1,0 +1,98 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_server
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: mental_agent
+    ports: ["5432:5432"]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/mental_agent
+      REDIS_URL: redis://redis:6379/0
+      TG_BOT_TOKEN: ${TG_BOT_TOKEN}
+      TG_WEBHOOK_SECRET: ${TG_WEBHOOK_SECRET-}
+    ports: ["8000:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.cuda
+    environment:
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/mental_agent
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      LIGHT_MODEL: ${LIGHT_MODEL-qwen2.5:1.5b}
+      MENTAL_BASE_MODEL: ${MENTAL_BASE_MODEL-unsloth/Qwen2.5-7B-Instruct}
+      MENTAL_LORA_PATH: /app/lora/grpo_lora
+    volumes:
+      - ./lora:/app/lora:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.cuda
+    command: celery -A src.scheduler:celery beat -l INFO
+    environment:
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/mental_agent
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  ollama_data:
+  pg_data:
+
+
