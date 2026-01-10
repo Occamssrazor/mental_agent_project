@@ -1,3 +1,5 @@
 .env
 lora/
 .venv/
+.idea/
+__pycache__/
